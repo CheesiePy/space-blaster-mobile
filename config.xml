@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" 
+        xmlns:tizen="http://tizen.org/ns/widgets" 
+        id="http://openclaw.com/spaceblaster" 
+        version="1.0.0" 
+        viewmodes="maximized">
+    
+    <name>Space Blaster</name>
+    <icon src="icon.png"/>
+    
+    <tizen:application id="OpenClawSpaceBlaster" 
+                       package="com.openclaw.spaceblaster" 
+                       required_version="2.3"/>
+    
+    <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support" value="true"/>
+    
+    <content src="index.html"/>
+    
+    <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
+    <feature name="http://tizen.org/feature/network.internet"/>
+    
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    
+    <tizen:profile name="tv-samsung"/>
+    
+    <tizen:setting screen-orientation="landscape" 
+                   context-menu="disable" 
+                   background-support="disable" 
+                   encryption="disable" 
+                   install-location="auto" 
+                   hwkey-event="enable"/>
+    
+    <description>A fast-paced space shooter game for Samsung Smart TVs. Navigate your ship, destroy enemies, and achieve the highest score!</description>
+    
+    <author href="https://openclaw.com" email="games@openclaw.com">OpenClaw Games</author>
+    
+    <license>MIT License</license>
+</widget>

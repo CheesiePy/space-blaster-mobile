@@ -1,0 +1,18 @@
+{
+    "id": "com.openclaw.spaceblaster",
+    "title": "Space Blaster",
+    "version": "1.0.0",
+    "vendor": "OpenClaw Games",
+    "type": "web",
+    "main": "index.html",
+    "icon": "icon.png",
+    "largeIcon": "largeIcon.png",
+    "bgImage": "splash.png",
+    "resolution": "1920x1080",
+    "appDescription": "A fast-paced space shooter game for Smart TVs. Navigate your ship, destroy enemies, and achieve the highest score!",
+    "iconColor": "#0a0a20",
+    "splashBackground": "#0a0a20",
+    "transparent": false,
+    "handlesRelaunch": false,
+    "disableBackHistoryAPI": true
+}
