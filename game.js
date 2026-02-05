@@ -161,7 +161,12 @@ const ShipSelectState = {
             items.push(group);
         });
         this.cursorManager = new CursorManager(this.game);
-        this.cursorManager.setItems(items, (index) => { this.game.selectedShip = SHIP_TYPES[index]; this.game.state.start('Play'); });
+        this.cursorManager.setItems(items, (index) => { 
+            if (this.game && this.game.selectedShip !== undefined) {
+                this.game.selectedShip = SHIP_TYPES[index]; 
+                this.game.state.start('Play'); 
+            }
+        });
         this.game.input.keyboard.addCallbacks(this, (e) => {
             if (e.keyCode === KEYS.LEFT || e.keyCode === KEYS.UP) this.cursorManager.movePrev();
             if (e.keyCode === KEYS.RIGHT || e.keyCode === KEYS.DOWN) this.cursorManager.moveNext();
