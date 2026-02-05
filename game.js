@@ -162,15 +162,18 @@ const ShipSelectState = {
         });
         this.cursorManager = new CursorManager(this.game);
         this.cursorManager.setItems(items, (index) => { 
-            if (this.game && this.game.selectedShip !== undefined) {
-                this.game.selectedShip = SHIP_TYPES[index]; 
-                this.game.state.start('Play'); 
-            }
+            console.log("Selecting ship index:", index);
+            this.game.selectedShip = SHIP_TYPES[index]; 
+            this.game.state.start('Play'); 
         });
         this.game.input.keyboard.addCallbacks(this, (e) => {
+            console.log("Key pressed in ShipSelect:", e.keyCode);
             if (e.keyCode === KEYS.LEFT || e.keyCode === KEYS.UP) this.cursorManager.movePrev();
             if (e.keyCode === KEYS.RIGHT || e.keyCode === KEYS.DOWN) this.cursorManager.moveNext();
-            if (e.keyCode === KEYS.ENTER) this.cursorManager.select();
+            if (e.keyCode === KEYS.ENTER) {
+                console.log("Enter pressed in ShipSelect");
+                this.cursorManager.select();
+            }
         });
     },
     shutdown: function() { this.game.input.keyboard.onDownCallback = null; }
