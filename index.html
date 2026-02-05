@@ -21,6 +21,7 @@
             overflow: hidden;
             background: #000;
             position: fixed;
+            touch-action: none;
         }
         #game-container {
             width: 100%;
@@ -33,54 +34,69 @@
         
         /* Mobile Controls */
         #mobile-controls {
-            display: none;
             position: absolute;
             bottom: 20px;
             width: 100%;
-            height: 150px;
+            height: 220px;
             pointer-events: none;
             z-index: 10;
         }
         .dpad {
             position: absolute;
             left: 20px;
-            bottom: 20px;
-            width: 200px;
-            height: 120px;
+            bottom: 10px;
+            width: 180px;
+            height: 180px;
             pointer-events: auto;
-            display: flex;
-            gap: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 5px;
         }
         .btn-fire {
             position: absolute;
-            right: 20px;
-            bottom: 20px;
-            width: 100px;
-            height: 100px;
+            right: 30px;
+            bottom: 40px;
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.4);
+            background: rgba(255, 0, 0, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.5);
             pointer-events: auto;
-        }
-        .btn-dir {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 30px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
         }
+        .btn-dir {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        .btn-up { grid-column: 2; grid-row: 1; }
+        .btn-left { grid-column: 1; grid-row: 2; }
+        .btn-right { grid-column: 3; grid-row: 2; }
+        .btn-down { grid-column: 2; grid-row: 3; }
+        
         .active {
-            background: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.5);
+            transform: scale(0.95);
+        }
+        .btn-fire.active {
+            background: rgba(255, 0, 0, 0.6);
         }
 
-        @media (max-width: 1024px) {
-            #mobile-controls {
-                display: block;
-            }
+        @media (orientation: landscape) {
+            #mobile-controls { height: 160px; }
+            .dpad { bottom: 5px; width: 160px; height: 160px; }
+            .btn-fire { bottom: 20px; width: 90px; height: 90px; }
         }
     </style>
 </head>
@@ -89,41 +105,61 @@
     
     <div id="mobile-controls">
         <div class="dpad">
-            <div id="btn-left" class="btn-dir">◀</div>
-            <div id="btn-right" class="btn-dir">▶</div>
+            <div id="btn-up" class="btn-dir btn-up">▲</div>
+            <div id="btn-left" class="btn-dir btn-left">◀</div>
+            <div id="btn-right" class="btn-dir btn-right">▶</div>
+            <div id="btn-down" class="btn-dir btn-down">▼</div>
         </div>
-        <div id="btn-fire" class="btn-fire"></div>
+        <div id="btn-fire" class="btn-fire">FIRE</div>
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser-ce/2.19.2/phaser.min.js"></script>
     <script src="game.js"></script>
     
     <script>
-        // Inject Mobile Touch Support for the existing game.js
         const setupMobileControls = () => {
-            const btnLeft = document.getElementById('btn-left');
-            const btnRight = document.getElementById('btn-right');
-            const btnFire = document.getElementById('btn-fire');
-            
-            const simulateKey = (code, type) => {
-                document.dispatchEvent(new KeyboardEvent(type, { keyCode: code }));
+            const controls = {
+                'btn-up': 38,
+                'btn-down': 40,
+                'btn-left': 37,
+                'btn-right': 39,
+                'btn-fire': 13
             };
             
-            btnLeft.ontouchstart = (e) => { e.preventDefault(); simulateKey(37, 'keydown'); btnLeft.classList.add('active'); };
-            btnLeft.ontouchend = () => { simulateKey(37, 'keyup'); btnLeft.classList.remove('active'); };
+            const simulateKey = (code, type) => {
+                document.dispatchEvent(new KeyboardEvent(type, { 
+                    keyCode: code,
+                    which: code,
+                    bubbles: true
+                }));
+            };
             
-            btnRight.ontouchstart = (e) => { e.preventDefault(); simulateKey(39, 'keydown'); btnRight.classList.add('active'); };
-            btnRight.ontouchend = () => { simulateKey(39, 'keyup'); btnRight.classList.remove('active'); };
-            
-            btnFire.ontouchstart = (e) => { e.preventDefault(); simulateKey(13, 'keydown'); btnFire.classList.add('active'); };
-            btnFire.ontouchend = () => { simulateKey(13, 'keyup'); btnFire.classList.remove('active'); };
-            
-            // Allow menu navigation with fire button for "ENTER"
-            btnFire.onclick = () => simulateKey(13, 'keydown');
+            Object.keys(controls).forEach(id => {
+                const el = document.getElementById(id);
+                const code = controls[id];
+                
+                const handleStart = (e) => {
+                    e.preventDefault();
+                    simulateKey(code, 'keydown');
+                    el.classList.add('active');
+                };
+                
+                const handleEnd = (e) => {
+                    e.preventDefault();
+                    simulateKey(code, 'keyup');
+                    el.classList.remove('active');
+                };
+
+                el.addEventListener('touchstart', handleStart, { passive: false });
+                el.addEventListener('touchend', handleEnd, { passive: false });
+                el.addEventListener('mousedown', handleStart);
+                el.addEventListener('mouseup', handleEnd);
+            });
         };
         
-        // Wait for game to init
-        setTimeout(setupMobileControls, 1000);
+        window.onload = () => {
+            setTimeout(setupMobileControls, 500);
+        };
     </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 /**
- * Space Blaster 3.1 - Bug Fix Edition
+ * Space Blaster 3.2 - Final Mobile Fix
  */
 
 const SAFE_MARGIN = 0.05;
@@ -27,6 +27,11 @@ const SHIP_TYPES = [
 
 class SoundEngine {
     constructor() {
+        this.ctx = null;
+        this.masterVolume = null;
+    }
+    init() {
+        if (this.ctx) return;
         try {
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
             this.masterVolume = this.ctx.createGain();
@@ -34,10 +39,13 @@ class SoundEngine {
             this.masterVolume.connect(this.ctx.destination);
         } catch(e) { console.error("Audio init failed", e); }
     }
-    resume() { if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
+    resume() { 
+        if(!this.ctx) this.init();
+        if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); 
+    }
     playLaser(type = 'NORMAL') {
-        if(!this.ctx) return;
         this.resume();
+        if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = type === 'BEAM' ? 'sawtooth' : 'square';
@@ -49,8 +57,8 @@ class SoundEngine {
         osc.start(); osc.stop(this.ctx.currentTime + 0.1);
     }
     playExplosion() {
-        if(!this.ctx) return;
         this.resume();
+        if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
@@ -62,8 +70,8 @@ class SoundEngine {
         osc.start(); osc.stop(this.ctx.currentTime + 0.3);
     }
     playPowerUp() {
-        if(!this.ctx) return;
         this.resume();
+        if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
@@ -74,7 +82,13 @@ class SoundEngine {
         osc.connect(gain); gain.connect(this.masterVolume);
         osc.start(); osc.stop(this.ctx.currentTime + 0.2);
     }
-    startMusic() { if (!this.musicStarted && this.ctx) { this.musicStarted = true; this.resume(); this.playBeat(); } }
+    startMusic() { 
+        this.resume();
+        if (!this.musicStarted && this.ctx) { 
+            this.musicStarted = true; 
+            this.playBeat(); 
+        } 
+    }
     playBeat() {
         if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
@@ -93,8 +107,8 @@ class SoundEngine {
 class CursorManager {
     constructor(game) { this.game = game; this.items = []; this.currentIndex = 0; this.onSelect = null; this.enabled = false; }
     setItems(items, onSelect) { this.items = items; this.onSelect = onSelect; this.currentIndex = 0; this.enabled = true; this.updateHighlight(); }
-    moveUp() { if (!this.enabled || this.items.length === 0) return; this.currentIndex = (this.currentIndex - 1 + this.items.length) % this.items.length; this.updateHighlight(); }
-    moveDown() { if (!this.enabled || this.items.length === 0) return; this.currentIndex = (this.currentIndex + 1) % this.items.length; this.updateHighlight(); }
+    moveNext() { if (!this.enabled || this.items.length === 0) return; this.currentIndex = (this.currentIndex + 1) % this.items.length; this.updateHighlight(); }
+    movePrev() { if (!this.enabled || this.items.length === 0) return; this.currentIndex = (this.currentIndex - 1 + this.items.length) % this.items.length; this.updateHighlight(); }
     select() { if (!this.enabled || this.items.length === 0) return; if (this.onSelect) this.onSelect(this.currentIndex, this.items[this.currentIndex]); }
     updateHighlight() {
         this.items.forEach((item, index) => {
@@ -118,12 +132,13 @@ const BootState = {
 const MenuState = {
     create: function() {
         this.game.add.graphics(0, 0).beginFill(0x0a0a20).drawRect(0, 0, 1920, 1080);
-        const title = this.game.add.text(960, 300, 'SPACE BLASTER 3.1', { font: 'bold 90px Arial', fill: '#00ffff' }); title.anchor.setTo(0.5);
+        const title = this.game.add.text(960, 300, 'SPACE BLASTER 3.2', { font: 'bold 90px Arial', fill: '#00ffff' }); title.anchor.setTo(0.5);
         const start = this.game.add.text(960, 550, '▶ START MISSION', { font: '52px Arial', fill: '#ffffff' }); start.anchor.setTo(0.5);
         this.cursorManager = new CursorManager(this.game);
         this.cursorManager.setItems([start], () => { this.game.soundEngine.startMusic(); this.game.state.start('ShipSelect'); });
+        
         this.kh = (e) => { 
-            if (e.keyCode === KEYS.ENTER) { this.game.soundEngine.resume(); this.cursorManager.select(); }
+            if (e.keyCode === KEYS.ENTER) { this.cursorManager.select(); }
         };
         document.addEventListener('keydown', this.kh);
     },
@@ -145,9 +160,10 @@ const ShipSelectState = {
         });
         this.cursorManager = new CursorManager(this.game);
         this.cursorManager.setItems(items, (index) => { this.game.selectedShip = SHIP_TYPES[index]; this.game.state.start('Play'); });
+        
         this.kh = (e) => {
-            if (e.keyCode === KEYS.LEFT) this.cursorManager.moveUp();
-            if (e.keyCode === KEYS.RIGHT) this.cursorManager.moveDown();
+            if (e.keyCode === KEYS.LEFT || e.keyCode === KEYS.UP) this.cursorManager.movePrev();
+            if (e.keyCode === KEYS.RIGHT || e.keyCode === KEYS.DOWN) this.cursorManager.moveNext();
             if (e.keyCode === KEYS.ENTER) this.cursorManager.select();
         };
         document.addEventListener('keydown', this.kh);
@@ -335,12 +351,15 @@ const PlayState = {
         this.level++;
         this.spawnTimer.delay = Math.max(300, 1000 - (this.level * 100));
         const t = this.game.add.text(960, 540, 'LEVEL UP!', { font: 'bold 80px Arial', fill: '#ffff00' }); t.anchor.setTo(0.5);
-        this.game.time.events.add(1000, () => t.destroy());
+        this.game.time.events.add(1000, () => { if(t) t.destroy(); });
     },
 
     hitPlayer: function() {
         this.lives--; this.livesText.setText('LIVES: ' + this.lives);
-        this.player.tint = 0xff0000; this.game.time.events.add(150, () => { if(this.player) this.player.tint = 0xffffff; });
+        if (this.player) {
+            this.player.tint = 0xff0000; 
+            this.game.time.events.add(150, () => { if(this.player) this.player.tint = 0xffffff; });
+        }
         if (this.lives <= 0) { this.gameOver = true; this.game.global = { finalScore: this.score }; this.game.state.start('GameOver'); }
     },
 
