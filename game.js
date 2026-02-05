@@ -1,5 +1,5 @@
 /**
- * Space Blaster 3.2 - Final Mobile Fix
+ * Space Blaster 3.2.2 - Stability Overhaul
  */
 
 const SAFE_MARGIN = 0.05;
@@ -29,6 +29,7 @@ class SoundEngine {
     constructor() {
         this.ctx = null;
         this.masterVolume = null;
+        this.musicStarted = false;
     }
     init() {
         if (this.ctx) return;
@@ -131,26 +132,19 @@ const BootState = {
 
 const MenuState = {
     create: function() {
-        console.log("MenuState Create");
         this.game.add.graphics(0, 0).beginFill(0x0a0a20).drawRect(0, 0, 1920, 1080);
         const title = this.game.add.text(960, 300, 'SPACE BLASTER 3.2', { font: 'bold 90px Arial', fill: '#00ffff' }); title.anchor.setTo(0.5);
         const start = this.game.add.text(960, 550, '▶ START MISSION', { font: '52px Arial', fill: '#ffffff' }); start.anchor.setTo(0.5);
-        
         this.cursorManager = new CursorManager(this.game);
         this.cursorManager.setItems([start], () => { 
-            console.log("Starting Mission...");
             this.game.soundEngine.startMusic(); 
             this.game.state.start('ShipSelect'); 
         });
-        
-        // Use standard Phaser input for the menu to bypass potential DOM event issues
         this.game.input.keyboard.addCallbacks(this, (e) => {
             if (e.keyCode === KEYS.ENTER) { this.cursorManager.select(); }
         });
     },
-    shutdown: function() { 
-        this.game.input.keyboard.onDownCallback = null;
-    }
+    shutdown: function() { this.game.input.keyboard.onDownCallback = null; }
 };
 
 const ShipSelectState = {
@@ -168,15 +162,13 @@ const ShipSelectState = {
         });
         this.cursorManager = new CursorManager(this.game);
         this.cursorManager.setItems(items, (index) => { this.game.selectedShip = SHIP_TYPES[index]; this.game.state.start('Play'); });
-        
-        this.kh = (e) => {
+        this.game.input.keyboard.addCallbacks(this, (e) => {
             if (e.keyCode === KEYS.LEFT || e.keyCode === KEYS.UP) this.cursorManager.movePrev();
             if (e.keyCode === KEYS.RIGHT || e.keyCode === KEYS.DOWN) this.cursorManager.moveNext();
             if (e.keyCode === KEYS.ENTER) this.cursorManager.select();
-        };
-        document.addEventListener('keydown', this.kh);
+        });
     },
-    shutdown: function() { document.removeEventListener('keydown', this.kh); }
+    shutdown: function() { this.game.input.keyboard.onDownCallback = null; }
 };
 
 const PlayState = {
@@ -207,17 +199,19 @@ const PlayState = {
         this.livesText = this.game.add.text(SAFE_RIGHT - 20, SAFE_TOP + 20, 'LIVES: 3', { font: '36px Arial', fill: '#ff6666' }); this.livesText.anchor.setTo(1, 0);
 
         this.keys = { left: false, right: false, up: false, down: false, fire: false };
-        this.kd = (e) => {
-            if (e.keyCode === KEYS.LEFT) this.keys.left = true; if (e.keyCode === KEYS.RIGHT) this.keys.right = true;
-            if (e.keyCode === KEYS.UP) this.keys.up = true; if (e.keyCode === KEYS.DOWN) this.keys.down = true;
+        this.game.input.keyboard.addCallbacks(this, (e) => {
+            if (e.keyCode === KEYS.LEFT) this.keys.left = true;
+            if (e.keyCode === KEYS.RIGHT) this.keys.right = true;
+            if (e.keyCode === KEYS.UP) this.keys.up = true;
+            if (e.keyCode === KEYS.DOWN) this.keys.down = true;
             if (e.keyCode === KEYS.ENTER) this.keys.fire = true;
-        };
-        this.ku = (e) => {
-            if (e.keyCode === KEYS.LEFT) this.keys.left = false; if (e.keyCode === KEYS.RIGHT) this.keys.right = false;
-            if (e.keyCode === KEYS.UP) this.keys.up = false; if (e.keyCode === KEYS.DOWN) this.keys.down = false;
+        }, (e) => {
+            if (e.keyCode === KEYS.LEFT) this.keys.left = false;
+            if (e.keyCode === KEYS.RIGHT) this.keys.right = false;
+            if (e.keyCode === KEYS.UP) this.keys.up = false;
+            if (e.keyCode === KEYS.DOWN) this.keys.down = false;
             if (e.keyCode === KEYS.ENTER) this.keys.fire = false;
-        };
-        document.addEventListener('keydown', this.kd); document.addEventListener('keyup', this.ku);
+        });
 
         this.spawnTimer = this.game.time.events.loop(1000, this.spawnEnemy, this);
         this.lastFire = 0;
@@ -244,25 +238,19 @@ const PlayState = {
             }
         }
 
-        this.bullets.forEach(b => { 
-            if(b.alive) {
-                b.x += b.vx || 0; b.y -= b.vy || 15;
-                if (b.y < -50 || b.x < 0 || b.x > 1920) b.destroy(); 
-            }
+        this.bullets.forEachAlive(b => { 
+            b.x += b.vx || 0; b.y -= b.vy || 15;
+            if (b.y < -50 || b.x < 0 || b.x > 1920) b.destroy(); 
         });
-        this.enemyBullets.forEach(b => { 
-            if(b.alive) {
-                b.y += 10 + (this.level); if (b.y > 1100) b.destroy(); 
-            }
+        this.enemyBullets.forEachAlive(b => { 
+            b.y += 10 + (this.level); if (b.y > 1100) b.destroy(); 
         });
-        this.enemies.forEach(e => {
-            if(e.alive) {
-                e.y += e.speed;
-                if (e.y > 1100) e.destroy();
-                if (Math.random() < 0.01 + (this.level * 0.005)) this.enemyFire(e);
-            }
+        this.enemies.forEachAlive(e => {
+            e.y += e.speed;
+            if (e.y > 1100) e.destroy();
+            if (Math.random() < 0.01 + (this.level * 0.005)) this.enemyFire(e);
         });
-        this.items.forEach(i => { if(i.alive) { i.y += 4; if (i.y > 1100) i.destroy(); } });
+        this.items.forEachAlive(i => { i.y += 4; if (i.y > 1100) i.destroy(); });
 
         this.checkCollisions();
     },
@@ -313,17 +301,14 @@ const PlayState = {
     },
 
     checkCollisions: function() {
-        this.bullets.forEach(b => {
-            if(!b.alive) return;
-            this.enemies.forEach(e => {
-                if(!e.alive) return;
+        this.bullets.forEachAlive(b => {
+            this.enemies.forEachAlive(e => {
                 if (Phaser.Math.distance(b.x, b.y, e.x, e.y) < 40) {
                     b.destroy(); this.killEnemy(e);
                 }
             });
         });
-        this.items.forEach(i => {
-            if(!i.alive) return;
+        this.items.forEachAlive(i => {
             if (Phaser.Math.distance(i.x, i.y, this.player.x, this.player.y) < 50) {
                 this.currentWeapon = i.weaponType;
                 this.powerTimer = 8000;
@@ -333,14 +318,12 @@ const PlayState = {
                 i.destroy();
             }
         });
-        this.enemyBullets.forEach(b => {
-            if(!b.alive) return;
+        this.enemyBullets.forEachAlive(b => {
             if (Phaser.Math.distance(b.x, b.y, this.player.x, this.player.y) < 30) {
                 b.destroy(); this.hitPlayer();
             }
         });
-        this.enemies.forEach(e => {
-            if(!e.alive) return;
+        this.enemies.forEachAlive(e => {
             if (Phaser.Math.distance(e.x, e.y, this.player.x, this.player.y) < 50) {
                 this.killEnemy(e); this.hitPlayer();
             }
@@ -359,19 +342,23 @@ const PlayState = {
         this.level++;
         this.spawnTimer.delay = Math.max(300, 1000 - (this.level * 100));
         const t = this.game.add.text(960, 540, 'LEVEL UP!', { font: 'bold 80px Arial', fill: '#ffff00' }); t.anchor.setTo(0.5);
-        this.game.time.events.add(1000, () => { if(t) t.destroy(); });
+        this.game.time.events.add(1000, () => { if(t && t.alive) t.destroy(); });
     },
 
     hitPlayer: function() {
         this.lives--; this.livesText.setText('LIVES: ' + this.lives);
-        if (this.player) {
+        if (this.player && this.player.alive) {
             this.player.tint = 0xff0000; 
-            this.game.time.events.add(150, () => { if(this.player) this.player.tint = 0xffffff; });
+            this.game.time.events.add(150, () => { if(this.player && this.player.alive) this.player.tint = 0xffffff; });
         }
-        if (this.lives <= 0) { this.gameOver = true; this.game.global = { finalScore: this.score }; this.game.state.start('GameOver'); }
+        if (this.lives <= 0) { 
+            this.gameOver = true; 
+            this.game.global = { finalScore: this.score }; 
+            this.game.state.start('GameOver'); 
+        }
     },
 
-    shutdown: function() { document.removeEventListener('keydown', this.kd); document.removeEventListener('keyup', this.ku); }
+    shutdown: function() { this.game.input.keyboard.onDownCallback = null; this.game.input.keyboard.onUpCallback = null; }
 };
 
 const GameOverState = {
@@ -381,10 +368,9 @@ const GameOverState = {
         const s = this.game.add.text(960, 500, 'FINAL SCORE: ' + (this.game.global ? this.game.global.finalScore : 0), { font: '40px Arial', fill: '#ffffff' }); s.anchor.setTo(0.5);
         const r = this.game.add.text(960, 650, 'RETRY', { font: '40px Arial', fill: '#ffffff' }); r.anchor.setTo(0.5);
         this.cm = new CursorManager(this.game); this.cm.setItems([r], () => this.game.state.start('ShipSelect'));
-        this.kh = (e) => { if (e.keyCode === KEYS.ENTER) this.cm.select(); };
-        document.addEventListener('keydown', this.kh);
+        this.game.input.keyboard.addCallbacks(this, (e) => { if (e.keyCode === KEYS.ENTER) this.cm.select(); });
     },
-    shutdown: function() { document.removeEventListener('keydown', this.kh); }
+    shutdown: function() { this.game.input.keyboard.onDownCallback = null; }
 };
 
 const game = new Phaser.Game(1920, 1080, Phaser.AUTO, 'game-container');
