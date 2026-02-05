@@ -131,18 +131,26 @@ const BootState = {
 
 const MenuState = {
     create: function() {
+        console.log("MenuState Create");
         this.game.add.graphics(0, 0).beginFill(0x0a0a20).drawRect(0, 0, 1920, 1080);
         const title = this.game.add.text(960, 300, 'SPACE BLASTER 3.2', { font: 'bold 90px Arial', fill: '#00ffff' }); title.anchor.setTo(0.5);
         const start = this.game.add.text(960, 550, '▶ START MISSION', { font: '52px Arial', fill: '#ffffff' }); start.anchor.setTo(0.5);
-        this.cursorManager = new CursorManager(this.game);
-        this.cursorManager.setItems([start], () => { this.game.soundEngine.startMusic(); this.game.state.start('ShipSelect'); });
         
-        this.kh = (e) => { 
+        this.cursorManager = new CursorManager(this.game);
+        this.cursorManager.setItems([start], () => { 
+            console.log("Starting Mission...");
+            this.game.soundEngine.startMusic(); 
+            this.game.state.start('ShipSelect'); 
+        });
+        
+        // Use standard Phaser input for the menu to bypass potential DOM event issues
+        this.game.input.keyboard.addCallbacks(this, (e) => {
             if (e.keyCode === KEYS.ENTER) { this.cursorManager.select(); }
-        };
-        document.addEventListener('keydown', this.kh);
+        });
     },
-    shutdown: function() { document.removeEventListener('keydown', this.kh); }
+    shutdown: function() { 
+        this.game.input.keyboard.onDownCallback = null;
+    }
 };
 
 const ShipSelectState = {

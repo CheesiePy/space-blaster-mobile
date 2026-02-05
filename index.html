@@ -114,7 +114,13 @@
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser-ce/2.19.2/phaser.min.js"></script>
-    <script src="game.js"></script>
+    <script>
+        // Emergency Global Error Catcher
+        window.onerror = function(msg, url, line) {
+            alert("Error: " + msg + "\nLine: " + line);
+        };
+    </script>
+    <script src="game.js?v=3.2.1"></script>
     
     <script>
         const setupMobileControls = () => {
