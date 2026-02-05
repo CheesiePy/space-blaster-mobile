@@ -1,6 +1,5 @@
 /**
- * Space Blaster 3.0 - Mobile & TV Edition
- * Built with Phaser 2 CE
+ * Space Blaster 3.1 - Bug Fix Edition
  */
 
 const SAFE_MARGIN = 0.05;
@@ -26,17 +25,19 @@ const SHIP_TYPES = [
     { name: 'VANGUARD', color: 0xffcc00, speed: 22, fireRateMult: 1.2, description: 'Interceptor' }
 ];
 
-// ============================================
-// SOUND ENGINE
-// ============================================
 class SoundEngine {
     constructor() {
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        this.masterVolume = this.ctx.createGain();
-        this.masterVolume.gain.value = 0.3;
-        this.masterVolume.connect(this.ctx.destination);
+        try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.masterVolume = this.ctx.createGain();
+            this.masterVolume.gain.value = 0.3;
+            this.masterVolume.connect(this.ctx.destination);
+        } catch(e) { console.error("Audio init failed", e); }
     }
+    resume() { if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
     playLaser(type = 'NORMAL') {
+        if(!this.ctx) return;
+        this.resume();
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = type === 'BEAM' ? 'sawtooth' : 'square';
@@ -48,6 +49,8 @@ class SoundEngine {
         osc.start(); osc.stop(this.ctx.currentTime + 0.1);
     }
     playExplosion() {
+        if(!this.ctx) return;
+        this.resume();
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
@@ -59,6 +62,8 @@ class SoundEngine {
         osc.start(); osc.stop(this.ctx.currentTime + 0.3);
     }
     playPowerUp() {
+        if(!this.ctx) return;
+        this.resume();
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
@@ -69,8 +74,9 @@ class SoundEngine {
         osc.connect(gain); gain.connect(this.masterVolume);
         osc.start(); osc.stop(this.ctx.currentTime + 0.2);
     }
-    startMusic() { if (!this.musicStarted) { this.musicStarted = true; this.playBeat(); } }
+    startMusic() { if (!this.musicStarted && this.ctx) { this.musicStarted = true; this.resume(); this.playBeat(); } }
     playBeat() {
+        if(!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
@@ -80,17 +86,12 @@ class SoundEngine {
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
         osc.connect(gain); gain.connect(this.masterVolume);
         osc.start(); osc.stop(this.ctx.currentTime + 0.1);
-        setTimeout(() => this.playBeat(), 400); // Faster tempo for 3.0
+        setTimeout(() => this.playBeat(), 400);
     }
 }
 
-// ============================================
-// CURSOR MANAGER
-// ============================================
 class CursorManager {
-    constructor(game) {
-        this.game = game; this.items = []; this.currentIndex = 0; this.onSelect = null; this.enabled = false;
-    }
+    constructor(game) { this.game = game; this.items = []; this.currentIndex = 0; this.onSelect = null; this.enabled = false; }
     setItems(items, onSelect) { this.items = items; this.onSelect = onSelect; this.currentIndex = 0; this.enabled = true; this.updateHighlight(); }
     moveUp() { if (!this.enabled || this.items.length === 0) return; this.currentIndex = (this.currentIndex - 1 + this.items.length) % this.items.length; this.updateHighlight(); }
     moveDown() { if (!this.enabled || this.items.length === 0) return; this.currentIndex = (this.currentIndex + 1) % this.items.length; this.updateHighlight(); }
@@ -99,14 +100,11 @@ class CursorManager {
         this.items.forEach((item, index) => {
             const hl = index === this.currentIndex;
             if (item.setShipHighlight) item.setShipHighlight(hl);
-            else { item.setStyle({ fill: hl ? '#ffff00' : '#ffffff' }); item.alpha = hl ? 1 : 0.7; }
+            else if (item.setStyle) { item.setStyle({ fill: hl ? '#ffff00' : '#ffffff' }); item.alpha = hl ? 1 : 0.7; }
         });
     }
 }
 
-// ============================================
-// STATES
-// ============================================
 const BootState = {
     create: function() {
         this.game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
@@ -120,11 +118,13 @@ const BootState = {
 const MenuState = {
     create: function() {
         this.game.add.graphics(0, 0).beginFill(0x0a0a20).drawRect(0, 0, 1920, 1080);
-        const title = this.game.add.text(960, 300, 'SPACE BLASTER 3.0', { font: 'bold 90px Arial', fill: '#00ffff' }); title.anchor.setTo(0.5);
+        const title = this.game.add.text(960, 300, 'SPACE BLASTER 3.1', { font: 'bold 90px Arial', fill: '#00ffff' }); title.anchor.setTo(0.5);
         const start = this.game.add.text(960, 550, '▶ START MISSION', { font: '52px Arial', fill: '#ffffff' }); start.anchor.setTo(0.5);
         this.cursorManager = new CursorManager(this.game);
         this.cursorManager.setItems([start], () => { this.game.soundEngine.startMusic(); this.game.state.start('ShipSelect'); });
-        this.kh = (e) => { if (e.keyCode === KEYS.ENTER) this.cursorManager.select(); };
+        this.kh = (e) => { 
+            if (e.keyCode === KEYS.ENTER) { this.game.soundEngine.resume(); this.cursorManager.select(); }
+        };
         document.addEventListener('keydown', this.kh);
     },
     shutdown: function() { document.removeEventListener('keydown', this.kh); }
@@ -204,7 +204,6 @@ const PlayState = {
 
         this.stars.forEach(s => { s.y += s.speed; if (s.y > 1080) s.y = -10; });
 
-        // Full Movement (Forward/Backward/Left/Right)
         if (this.keys.left && this.player.x > SAFE_LEFT) this.player.x -= this.player.speed;
         if (this.keys.right && this.player.x < SAFE_RIGHT) this.player.x += this.player.speed;
         if (this.keys.up && this.player.y > SAFE_TOP + 200) this.player.y -= this.player.speed * 0.8;
@@ -222,16 +221,24 @@ const PlayState = {
         }
 
         this.bullets.forEach(b => { 
-            b.x += b.vx || 0; b.y -= b.vy || 15;
-            if (b.y < -50 || b.x < 0 || b.x > 1920) b.destroy(); 
+            if(b.alive) {
+                b.x += b.vx || 0; b.y -= b.vy || 15;
+                if (b.y < -50 || b.x < 0 || b.x > 1920) b.destroy(); 
+            }
         });
-        this.enemyBullets.forEach(b => { b.y += 10 + (this.level); if (b.y > 1100) b.destroy(); });
+        this.enemyBullets.forEach(b => { 
+            if(b.alive) {
+                b.y += 10 + (this.level); if (b.y > 1100) b.destroy(); 
+            }
+        });
         this.enemies.forEach(e => {
-            e.y += e.speed;
-            if (e.y > 1100) e.destroy();
-            if (Math.random() < 0.01 + (this.level * 0.005)) this.enemyFire(e);
+            if(e.alive) {
+                e.y += e.speed;
+                if (e.y > 1100) e.destroy();
+                if (Math.random() < 0.01 + (this.level * 0.005)) this.enemyFire(e);
+            }
         });
-        this.items.forEach(i => { i.y += 4; if (i.y > 1100) i.destroy(); });
+        this.items.forEach(i => { if(i.alive) { i.y += 4; if (i.y > 1100) i.destroy(); } });
 
         this.checkCollisions();
     },
@@ -257,6 +264,7 @@ const PlayState = {
     },
 
     spawnEnemy: function() {
+        if(this.gameOver) return;
         const e = this.game.add.graphics(SAFE_LEFT + Math.random() * SAFE_WIDTH, -50);
         e.beginFill(0xff3333).moveTo(0, -30).lineTo(30, 0).lineTo(0, 30).lineTo(-30, 0).close();
         e.speed = (5 + Math.random() * 5) * (1 + (this.level - 1) * 0.2);
@@ -264,6 +272,7 @@ const PlayState = {
     },
 
     enemyFire: function(e) {
+        if(!e.alive) return;
         const b = this.game.add.graphics(e.x, e.y + 30);
         b.beginFill(0xffaa00).drawCircle(0, 0, 12);
         this.enemyBullets.add(b);
@@ -281,13 +290,16 @@ const PlayState = {
 
     checkCollisions: function() {
         this.bullets.forEach(b => {
+            if(!b.alive) return;
             this.enemies.forEach(e => {
+                if(!e.alive) return;
                 if (Phaser.Math.distance(b.x, b.y, e.x, e.y) < 40) {
                     b.destroy(); this.killEnemy(e);
                 }
             });
         });
         this.items.forEach(i => {
+            if(!i.alive) return;
             if (Phaser.Math.distance(i.x, i.y, this.player.x, this.player.y) < 50) {
                 this.currentWeapon = i.weaponType;
                 this.powerTimer = 8000;
@@ -298,11 +310,13 @@ const PlayState = {
             }
         });
         this.enemyBullets.forEach(b => {
+            if(!b.alive) return;
             if (Phaser.Math.distance(b.x, b.y, this.player.x, this.player.y) < 30) {
                 b.destroy(); this.hitPlayer();
             }
         });
         this.enemies.forEach(e => {
+            if(!e.alive) return;
             if (Phaser.Math.distance(e.x, e.y, this.player.x, this.player.y) < 50) {
                 this.killEnemy(e); this.hitPlayer();
             }
@@ -326,7 +340,7 @@ const PlayState = {
 
     hitPlayer: function() {
         this.lives--; this.livesText.setText('LIVES: ' + this.lives);
-        this.player.tint = 0xff0000; this.game.time.events.add(150, () => this.player.tint = 0xffffff);
+        this.player.tint = 0xff0000; this.game.time.events.add(150, () => { if(this.player) this.player.tint = 0xffffff; });
         if (this.lives <= 0) { this.gameOver = true; this.game.global = { finalScore: this.score }; this.game.state.start('GameOver'); }
     },
 
