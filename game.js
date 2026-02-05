@@ -155,7 +155,7 @@ const ShipSelectState = {
             const x = 500 + i * 460;
             const group = this.game.add.group(); group.x = x; group.y = 540;
             const bg = this.game.add.graphics(0,0); bg.lineStyle(4, 0xffffff, 0.3); bg.beginFill(0x111111); bg.drawRect(-180, -250, 360, 500); group.add(bg);
-            const ship = this.game.add.graphics(0, -80); ship.beginFill(t.color); ship.moveTo(0, -40); ship.lineTo(35, 40); ship.lineTo(-35, 40); ship.close(); ship.endFill(); group.add(ship);
+            const ship = this.game.add.graphics(0, -80); ship.beginFill(t.color); ship.moveTo(0, -40); ship.lineTo(35, 40); ship.lineTo(-35, 40); ship.lineTo(0, -40); ship.endFill(); group.add(ship);
             const name = this.game.add.text(0, 50, t.name, { font: 'bold 36px Arial', fill: '#ffffff' }); name.anchor.setTo(0.5); group.add(name);
             group.setShipHighlight = (hl) => { bg.clear(); bg.lineStyle(6, hl ? 0xffff00 : 0xffffff); bg.beginFill(hl ? 0x222222 : 0x111111); bg.drawRect(-180, -250, 360, 500); };
             items.push(group);
@@ -191,7 +191,7 @@ const PlayState = {
         }
 
         this.player = this.game.add.graphics(960, 900);
-        this.player.beginFill(this.shipConfig.color).moveTo(0, -40).lineTo(35, 40).lineTo(-35, 40).close();
+        this.player.beginFill(this.shipConfig.color).moveTo(0, -40).lineTo(35, 40).lineTo(-35, 40).lineTo(0, -40).endFill();
         this.player.speed = this.shipConfig.speed;
 
         this.enemies = this.game.add.group();
@@ -283,7 +283,7 @@ const PlayState = {
     spawnEnemy: function() {
         if(this.gameOver) return;
         const e = this.game.add.graphics(SAFE_LEFT + Math.random() * SAFE_WIDTH, -50);
-        e.beginFill(0xff3333).moveTo(0, -30).lineTo(30, 0).lineTo(0, 30).lineTo(-30, 0).close();
+        e.beginFill(0xff3333).moveTo(0, -30).lineTo(30, 0).lineTo(0, 30).lineTo(-30, 0).lineTo(0, -30).endFill();
         e.speed = (5 + Math.random() * 5) * (1 + (this.level - 1) * 0.2);
         this.enemies.add(e);
     },
